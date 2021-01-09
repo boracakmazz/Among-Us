@@ -21,15 +21,35 @@ public class PlayerController : MonoBehaviour
     static Color playerColor;
     SpriteRenderer playerAvatarSprite;
 
+    //Role
+    [SerializeField] bool isImposter;
+    [SerializeField] InputAction KILL;
+    float killInput;
+
+    List<PlayerController> targets;
+    [SerializeField] Collider playerCollider;
+
+    bool isDead;
+
+    [SerializeField] GameObject bodyPrefab;
+
+    private void Awake()
+    {
+        KILL.performed += KillTarget;
+       
+    }
+
     private void OnEnable()
     {
         WASD.Enable();
+        KILL.Enable();
         
     }
 
     private void OnDisable()
     {
         WASD.Disable();
+        KILL.Disable();
     }
 
     // Start is called before the first frame update
@@ -39,7 +59,7 @@ public class PlayerController : MonoBehaviour
         {
             localPlayer = this;
         }
-
+        targets = new List<PlayerController>();
         playerRigidbody = GetComponent<Rigidbody>();
         playerAvatar = transform.GetChild(0);
         playerAnimator = GetComponent<Animator>();
@@ -49,12 +69,18 @@ public class PlayerController : MonoBehaviour
         {
             playerColor = Color.white;
         }
+        if (!hasControl)
+            return;
+
         playerAvatarSprite.color = playerColor;
     }
 
     // Update is called once per frame
     void Update()
     {
+        if (!hasControl)
+            return;
+
         movementInput = WASD.ReadValue<Vector2>();  //Getting player's input
 
         if(movementInput.x != 0)
@@ -77,5 +103,66 @@ public class PlayerController : MonoBehaviour
         {
             playerAvatarSprite.color = playerColor;
         }
+    }
+
+    public void SetRole(bool newRole)
+    {
+        isImposter = newRole;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.tag == "Player")
+        {
+            PlayerController tempTarget = other.GetComponent<PlayerController>();
+            if (isImposter)
+            {
+                if (tempTarget.isImposter)
+                    return;
+                else
+                {
+                    targets.Add(tempTarget);
+                }
+            }
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if(other.tag == "Player")
+        {
+            PlayerController tempTarget = other.GetComponent<PlayerController>();
+            if (targets.Contains(tempTarget))
+            {
+                targets.Remove(tempTarget);
+            }
+        }
+    }
+    void KillTarget(InputAction.CallbackContext context)
+    {
+        if(context.phase == InputActionPhase.Performed)
+        {
+            if (targets.Count == 0)
+                return;
+            else
+            {
+                if (targets[targets.Count - 1].isDead)
+                    return;
+                transform.position = targets[targets.Count - 1].transform.position;
+                targets[targets.Count - 1].Die();
+                targets.RemoveAt(targets.Count - 1);
+            }
+        }
+    }
+    
+    public void Die()
+    {
+        isDead = true;
+        playerAnimator.SetBool("IsDead", isDead);
+        playerCollider.enabled = false;
+
+        Body tempBody = Instantiate(bodyPrefab, transform.position, transform.rotation).GetComponent<Body>();
+        tempBody.SetColor(playerAvatarSprite.color);
+
     }
 }
