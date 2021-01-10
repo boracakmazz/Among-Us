@@ -10,4 +10,18 @@ public class Body : MonoBehaviour
     {
         bodySprite.color = newColor;
     }
+
+    private void OnEnable()
+    {
+        if(PlayerController.allBodies != null)
+        {
+            PlayerController.allBodies.Add(transform);
+        }
+    }
+
+    public void Report()
+    {
+        Debug.Log("Reported");
+        Destroy(gameObject);
+    }
 }

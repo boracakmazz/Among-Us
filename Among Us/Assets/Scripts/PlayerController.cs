@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -33,16 +34,25 @@ public class PlayerController : MonoBehaviour
 
     [SerializeField] GameObject bodyPrefab;
 
+    public static List<Transform> allBodies;
+
+    List<Transform> bodiesFound;
+
+    [SerializeField] InputAction Report;
+    [SerializeField] LayerMask ignoreForBody;
+
     private void Awake()
     {
         KILL.performed += KillTarget;
-       
+        Report.performed += ReportBody;
     }
+
 
     private void OnEnable()
     {
         WASD.Enable();
         KILL.Enable();
+        Report.Enable();
         
     }
 
@@ -50,6 +60,7 @@ public class PlayerController : MonoBehaviour
     {
         WASD.Disable();
         KILL.Disable();
+        Report.Disable();
     }
 
     // Start is called before the first frame update
@@ -73,6 +84,10 @@ public class PlayerController : MonoBehaviour
             return;
 
         playerAvatarSprite.color = playerColor;
+
+        allBodies = new List<Transform>();
+        bodiesFound = new List<Transform>();
+
     }
 
     // Update is called once per frame
@@ -89,6 +104,48 @@ public class PlayerController : MonoBehaviour
         }
 
         playerAnimator.SetFloat("Speed", movementInput.magnitude);
+
+        if(allBodies.Count > 0)
+        {
+            BodySearch();
+        }
+    }
+
+    void BodySearch()
+    {
+        foreach(Transform body in allBodies)
+        {
+            RaycastHit hit;
+            Ray ray = new Ray(transform.position, body.position - transform.position);
+            Debug.DrawRay(transform.position, body.position - transform.position, Color.cyan);
+            if(Physics.Raycast(ray, out hit, 1000f, ~ignoreForBody))
+            {
+                if(hit.transform == body)
+                {
+                   // Debug.Log(hit.transform.name);
+                    //Debug.Log(bodiesFound.Count);
+                    if(bodiesFound.Contains(body.transform))
+                        return;
+                    bodiesFound.Add(body.transform);
+                }
+                else
+                {
+                    bodiesFound.Remove(body.transform);
+                }
+            }
+        }
+    }
+
+    private void ReportBody(InputAction.CallbackContext obj)
+    {
+        if (bodiesFound == null)
+            return;
+        if (bodiesFound.Count == 0)
+            return;
+        Transform tempBody = bodiesFound[bodiesFound.Count - 1];
+        allBodies.Remove(tempBody);
+        bodiesFound.Remove(tempBody);
+        tempBody.GetComponent<Body>().Report();
     }
 
     private void FixedUpdate()
@@ -159,6 +216,7 @@ public class PlayerController : MonoBehaviour
     {
         isDead = true;
         playerAnimator.SetBool("IsDead", isDead);
+        gameObject.layer = 8;
         playerCollider.enabled = false;
 
         Body tempBody = Instantiate(bodyPrefab, transform.position, transform.rotation).GetComponent<Body>();
